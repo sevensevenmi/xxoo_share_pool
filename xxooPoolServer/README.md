@@ -1,8 +1,12 @@
 # 使用说明
 
+部署方式：
+    docker
+    docker-compose
 
-cd到当前项目目录，执行以下命令
+部署：
 
-nohup php -S 192.168.2.10:889 > sharecode.log 2>&1
+- 将xxoo.yml文件拷贝到你的服务器，并修改里面的密码
+- 执行命令：docker-compose -f xxoo.yml up -d
 
-ip表示监听哪些地址，端口可改
+数据管理地址： /admin.php
