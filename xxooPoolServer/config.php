@@ -74,8 +74,13 @@ define("REDIS_HOST", getenv('REDIS_HOST'));
 define("REDIS_PORT", getenv('REDIS_PORT'));
 const REDIS_PASS = '';
 const REDIS_DEFAULT_TIME = 43200;
-const REDIS_IDNEX = 1;
+const REDIS_IDNEX = 0;
 
+
+/**
+ * 没有环境变量时使用的默认触发异步任务的密码
+ */
+const TASK_PASS = 'testpassasdf234234.,,sdklfghjdklfg';
 
 /**
  * 助力次数配置
