@@ -3,9 +3,9 @@
 
 ================Loon==============
 [Script]
-cron "0 0 * * *" script-path=xxoo.js, tag=xxoo助力池
+cron "1,2,3 0 * * *" script-path=xxoo.js, tag=xxoo助力池s
  */
-var version='1.0.2';
+var version='1.0.5';
 var fs = require("fs");
 console.log(":<<EOF");
 const $ = new Env("xxoo互助池");
@@ -81,11 +81,78 @@ addSource("code.sh", function () {
     return getShareCodeFrom_code();
 });
 
+//从所有日志中解析助力码
+addSource('log path',function(){
+   return  parseCodeFromLogPath();
+});
+
+
 var codes = readFromConfigSources();
 console.log('------ 整合后的助力码------------');
 console.log(codes);
 uploadAndGetShareCodes(codes);
 
+function parseCodeFromLogPath(){
+    var res={};
+    var logPath=`${process.env.QL_DIR}/log`;
+    var dirs = fs.readdirSync(logPath);
+    for (let i = 0; i < dirs.length; i++) {
+        var logSubPath=dirs[i];
+        var data = getLastFileDataFromDir(logSubPath);
+        if (data == null) {
+            continue;
+        }
+        parseCodeFromString(data,res);
+    }
+    return res;
+}
+
+function parseCodeFromString(str, data) {
+    var ptPinReg = /用户：(\S*)/g;
+    var envNameReg = /环境变量：(\S*)/g;
+    var codeReg = /助力码：(\S*)/g;
+    var ptPin = regexSearch(str, ptPinReg);
+    var env = regexSearch(str, envNameReg);
+    var code = regexSearch(str, codeReg);
+
+    if (ptPin.length > 0) {
+        for (let i = 0; i < ptPin.length; i++) {
+            if (!isEmpty(data) && !isEmpty(ptPin[i]) && !isEmpty(env[i]) && !isEmpty(code[i])) {
+                putVal(data, ptPin[i].trim(), env[i].trim(), code[i].trim());
+            }
+        }
+    }
+}
+
+function regexSearch(str, reg) {
+    var res = [];
+    var i = 0;
+    do {
+        var r = reg.exec(str);
+        if (r == null) {
+            break;
+        }
+        res[i] = r[1].trim();
+        i++;
+    } while (true)
+    return res;
+}
+
+function putVal(data, x, y, val) {
+    if (!isEmpty(x) && !isEmpty(x) && !isEmpty(y) && !isEmpty(val)) {
+        val = val.trim();
+        if (val !== '') {
+            if (!data[x]) {
+                data[x] = {};
+            }
+            data[x][y] = val;
+        }
+    }
+}
+
+function isEmpty(str) {
+    return str == null || false || str.trim() === '';
+}
 
 /**
  * 上传互助码并拉取互助池中的互助码s
@@ -96,8 +163,9 @@ function uploadAndGetShareCodes(data) {
         var token = process.env.XXOO_TOKEN;
         var askPtPin = process.env.XXOO_FOR;
         var closeSelf = process.env.XXOO_CLOSE_SELF;
+        var random = process.env.XXOO_RANDOM;
         var ops = {
-            'url': `${host}/index.php?token=${token}&askFor=${askPtPin}&clientVersion=${version}&closeSelf=${closeSelf}`,
+            'url': `${host}/index.php?token=${token}&askFor=${askPtPin}&clientVersion=${version}&closeSelf=${closeSelf}&random=${random}`,
             'headers': {
                 "Content-Type": "application/json",
             },
@@ -119,18 +187,22 @@ function addSource(desc, func) {
 function readFromConfigSources() {
     var res = [];
     for (let k in shareCodeSources) {
-        var source = shareCodeSources[k];
-        var func = source['func'];
-        var r = func();
-        source['response'] = r;
-        res.push(r);
+        try{
+            var source = shareCodeSources[k];
+            var func = source['func'];
+            var r = func();
+            source['response'] = r;
+            res.push(r);
+        }catch (e){}
     }
     var mergedCodes = {};
     console.log("========= 获取助力码来源 =========");
     for (const k in shareCodeSources) {
         var source = shareCodeSources[k];
         console.log(`         ${source['desc']}`);
-        mergedCodes = mergeCodes(mergedCodes, source['response']);
+        if (source['response']) {
+            mergedCodes = mergeCodes(mergedCodes, source['response']);
+        }
     }
     console.log("                          ");
     return mergedCodes;
@@ -205,6 +277,10 @@ function getShareCodeFrom_get_share_code_js_log_ByDir(dir) {
 function getLastFileDataFromDir(dir) {
     var pathName = `${process.env.QL_DIR}/log/${dir}`;
     if (!fs.existsSync(pathName)) {
+        return null;
+    }
+    var stat = fs.statSync(pathName);
+    if (!stat.isDirectory()) {
         return null;
     }
     var files = fs.readdirSync(pathName);
